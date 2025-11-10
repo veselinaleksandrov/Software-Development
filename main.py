@@ -27,4 +27,5 @@ async def main():
   return gt_tbl.as_raw_html(make_page=True)
 
 
-uvicorn.run(app, port=5000, host="0.0.0.0")
+uvicorn.run(app, port=5000, host="0.0.0.0"
+  
