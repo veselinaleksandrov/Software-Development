@@ -7,3 +7,10 @@ fastapi
 uvicorn
 orjson
 great-tables
+fastapi
+google-auth
+great-tables
+gspread
+pandas
+requests
+uvicorn

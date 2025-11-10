@@ -1,37 +1,28 @@
 from utils.google_sheets import get_worksheet_as_dataframe
 from fastapi import FastAPI
-import uvicorn
-from fastapi.templating import Jinja2Templates
-from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from great_tables import GT
-
-app = FastAPI()
-templates = Jinja2Templates(directory="utils")
-
-# Full sheet url with parameters, be sure #gid=[ID] is present
-# e.g. https://docs.google.com/spreadsheets/d/[ID]/edit#gid=[GID]
+import uvicorn
 
 WORKSHEET_URL = "https://docs.google.com/spreadsheets/d/1xZODLYSYG5g9PMP3VAPeFfNF8Ne1quIJhlTCeNGg-mM/edit?gid=1386834576#gid=1386834576"
 
-DF = get_worksheet_as_dataframe(spreadsheet_url=WORKSHEET_URL,
-                                require_auth=True,
-                                skip_rows=0,
-                                skip_cols=0,
-                                has_header=True)
-
 TITLE = "U.S. National Parks 🌲"
 
-INDEX_COL = "name"
-
-# New FastAPI app
 app = FastAPI()
 
 
 @app.get("/", response_class=HTMLResponse)
 async def main():
-
-  gt_tbl = GT(DF, rowname_col=INDEX_COL).tab_header(title=TITLE)
+  df = get_worksheet_as_dataframe(spreadsheet_url=WORKSHEET_URL,
+                                  require_auth=True,
+                                  skip_rows=0,
+                                  skip_cols=0,
+                                  has_header=True)
+  
+  if 'name' in df.columns:
+    gt_tbl = GT(df, rowname_col='name').tab_header(title=TITLE)
+  else:
+    gt_tbl = GT(df).tab_header(title=TITLE)
 
   return gt_tbl.as_raw_html(make_page=True)
 

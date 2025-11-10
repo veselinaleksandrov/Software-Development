@@ -1,10 +1,10 @@
-import json
 import os
 from urllib.parse import parse_qs, urljoin, urlparse
 
 import gspread
 import pandas as pd
-from google.oauth2 import service_account
+import requests
+from google.oauth2.credentials import Credentials
 
 
 def validate_url(url: str):
@@ -22,15 +22,66 @@ def validate_url(url: str):
     raise ValueError("gid parameter missing in the URL")
 
 
-def get_service_account() -> service_account.Credentials:
-  scopes = [
-      'https://www.googleapis.com/auth/spreadsheets',
-      'https://www.googleapis.com/auth/drive',
-  ]
+def fetch_connector_credentials():
+  hostname = os.environ.get('REPLIT_CONNECTORS_HOSTNAME')
+  if not hostname:
+    raise Exception('REPLIT_CONNECTORS_HOSTNAME environment variable not found')
+  
+  x_replit_token = None
+  if os.environ.get('REPL_IDENTITY'):
+    x_replit_token = 'repl ' + os.environ['REPL_IDENTITY']
+  elif os.environ.get('WEB_REPL_RENEWAL'):
+    x_replit_token = 'depl ' + os.environ['WEB_REPL_RENEWAL']
+  
+  if not x_replit_token:
+    raise Exception('Authentication token not found (REPL_IDENTITY or WEB_REPL_RENEWAL required)')
+  
+  response = requests.get(
+    f'https://{hostname}/api/v2/connection?include_secrets=true&connector_names=google-sheet',
+    headers={
+      'Accept': 'application/json',
+      'X_REPLIT_TOKEN': x_replit_token
+    }
+  )
+  
+  if not response.ok:
+    raise Exception(f'Failed to fetch connector credentials: HTTP {response.status_code} - {response.text}')
+  
+  data = response.json()
+  items = data.get('items', [])
+  
+  if not items:
+    raise Exception('Google Sheets connector not set up. Please connect your Google Sheets account.')
+  
+  connection_settings = items[0]
+  settings = connection_settings.get('settings', {})
+  
+  access_token = settings.get('access_token')
+  if not access_token:
+    oauth_creds = settings.get('oauth', {}).get('credentials', {})
+    access_token = oauth_creds.get('access_token')
+  
+  if not access_token:
+    raise Exception('Access token not found in connector response')
+  
+  refresh_token = settings.get('refresh_token')
+  token_uri = settings.get('token_uri', 'https://oauth2.googleapis.com/token')
+  client_id = settings.get('client_id')
+  client_secret = settings.get('client_secret')
+  
+  return Credentials(
+    token=access_token,
+    refresh_token=refresh_token,
+    token_uri=token_uri,
+    client_id=client_id,
+    client_secret=client_secret
+  )
 
-  return service_account.Credentials.from_service_account_info(json.loads(
-      os.environ['SERVICE_ACCOUNT_JSON']),
-                                                               scopes=scopes)
+
+def get_gspread_client():
+  credentials = fetch_connector_credentials()
+  gc = gspread.authorize(credentials)
+  return gc
 
 
 def load_worksheet_from_url(spreadsheet_url: str,
@@ -42,11 +93,10 @@ def load_worksheet_from_url(spreadsheet_url: str,
 
 def load_worksheet_from_api(spreadsheet_url: str,
                             worksheed_gid: str) -> pd.DataFrame:
-  service_account = get_service_account()
-  gc = gspread.authorize(service_account)
+  gc = get_gspread_client()
 
   sheet = gc.open_by_url(spreadsheet_url)
-  worksheet = sheet.get_worksheet_by_id(worksheed_gid)
+  worksheet = sheet.get_worksheet_by_id(int(worksheed_gid))
 
   data = worksheet.get_all_values()
   return pd.DataFrame(data)
