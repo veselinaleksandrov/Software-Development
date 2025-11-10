@@ -12,10 +12,10 @@ templates = Jinja2Templates(directory="utils")
 # Full sheet url with parameters, be sure #gid=[ID] is present
 # e.g. https://docs.google.com/spreadsheets/d/[ID]/edit#gid=[GID]
 
-WORKSHEET_URL = "https://docs.google.com/spreadsheets/d/1SHLkaI73Dvk8h6gAqHfuqthVm8htBXVZ-rnQ2tfHvWA/edit#gid=2044031673"
+WORKSHEET_URL = "https://docs.google.com/spreadsheets/d/1xZODLYSYG5g9PMP3VAPeFfNF8Ne1quIJhlTCeNGg-mM/edit?gid=1386834576#gid=1386834576"
 
 DF = get_worksheet_as_dataframe(spreadsheet_url=WORKSHEET_URL,
-                                require_auth=False,
+                                require_auth=True,
                                 skip_rows=0,
                                 skip_cols=0,
                                 has_header=True)
@@ -36,4 +36,4 @@ async def main():
   return gt_tbl.as_raw_html(make_page=True)
 
 
-uvicorn.run(app, port=8080, host="0.0.0.0")
+uvicorn.run(app, port=5000, host="0.0.0.0")
